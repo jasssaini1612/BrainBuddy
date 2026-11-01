@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrainBuddy – Learn together. Grow smarter.</title>
+<link rel="icon" href="logo.jpg">
+<style>
+:root{--bg:#f5f6fb;--card:#fff;--tx:#1d2040;--mu:#6b7090;--pr:#7a4fc4;--ok:#1a9d5c;--bad:#d64545;--bd:#e3e5f0}
+@media(prefers-color-scheme:dark){:root{--bg:#14152a;--card:#1e2040;--tx:#eceefc;--mu:#9a9fc8;--pr:#8b8bff;--bd:#33366a}}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx);display:flex;min-height:100vh}
+nav{width:200px;padding:16px;background:var(--card);border-right:1px solid var(--bd);position:sticky;top:0;height:100vh;overflow:auto}
+nav button{display:block;width:100%;text-align:left;margin:2px 0;padding:8px 10px;border:0;border-radius:8px;background:none;color:var(--tx);cursor:pointer;font-size:14px}
+nav button.on,nav button:hover{background:var(--pr);color:#fff}
+main{flex:1;padding:20px;max-width:900px}section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.stat b{font-size:26px;color:var(--pr);display:block}
+input,select,textarea,button.b{padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;margin:3px 0}
+button.b{background:var(--pr);color:#fff;border:0;cursor:pointer}button.b.alt{background:var(--card);color:var(--tx);border:1px solid var(--bd)}
+.opt{display:block;width:100%;text-align:left;margin:4px 0}.opt.ok{background:var(--ok);color:#fff}.opt.no{background:var(--bad);color:#fff}
+.flash{height:140px;display:flex;align-items:center;justify-content:center;font-size:20px;text-align:center;cursor:pointer;background:var(--pr);color:#fff;border-radius:12px;padding:12px}
+#cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}#cal div{padding:8px 2px;text-align:center;border:1px solid var(--bd);border-radius:6px;font-size:13px;cursor:pointer;min-height:42px}
+#cal .ev{background:var(--pr);color:#fff}#cal .td{outline:2px solid var(--ok)}
+.msg{padding:8px 12px;border-radius:12px;margin:5px 0;max-width:80%}.me{background:var(--pr);color:#fff;margin-left:auto}.bot{background:var(--bd)}
+#chatlog{height:260px;overflow:auto}.lock{opacity:.5}
+#focus{display:none;position:fixed;inset:0;background:#0d0e1f;color:#fff;z-index:9;flex-direction:column;align-items:center;justify-content:center}
+#focus.on{display:flex}#focus h1{font-size:72px;margin:10px}
+@media(max-width:700px){body{flex-direction:column}nav{width:100%;height:auto;position:static;display:flex;flex-wrap:wrap;gap:4px}nav button{width:auto}}
+</style>
+</head>
+<body>
+<nav id="nav"><img src="logo.jpg" alt="BrainBuddy logo" style="width:100%;border-radius:10px;margin-bottom:10px;background:#fff"></nav>
+<main>
+<section id="dashboard"><h1>Dashboard</h1><p style="color:var(--mu);margin-top:-8px">Learn together. Grow smarter.</p><div class="grid" id="dstats"></div>
+<div class="card"><b>Daily tip:</b> <span id="tip"></span></div>
+<div class="card"><button class="b" onclick="go('quiz')">Take a quiz</button> <button class="b alt" onclick="startFocus()">Focus mode</button> <button class="b alt" onclick="go('plan')">Log study hours</button></div></section>
+
+<section id="learn"><h1>Learning Material</h1><select id="subj" onchange="renderLearn()"></select><div id="lcontent"></div></section>
+
+<section id="progress"><h1>Progress</h1><div class="grid" id="pstats"></div><div class="card"><canvas id="chart" width="800" height="250" style="width:100%"></canvas><small id="chartnote"></small></div></section>
+
+<section id="plan"><h1>Study Plan</h1><div class="card">
+<label>Subject <select id="psub"></select></label><br>
+<label>Hours studied today <input id="phrs" type="number" min="0" max="24" step="0.5" value="1"></label><br>
+<label>Daily goal (hours) <input id="pgoal" type="number" min="1" max="12" step="0.5" value="2"></label><br>
+<button class="b" onclick="savePlan()">Save</button></div><div id="plist" class="card"></div></section>
+
+<section id="calendar"><h1>Calendar</h1><div class="card"><button class="b alt" onclick="cm(-1)">◀</button> <b id="cmt"></b> <button class="b alt" onclick="cm(1)">▶</button><div id="cal"></div><small>Tap a date to add an event.</small></div></section>
+
+<section id="remind"><h1>Reminders</h1><div class="card"><input id="rtx" placeholder="What to remember?"> <input id="rdt" type="datetime-local"> <button class="b" onclick="addRem()">Add</button></div><div id="rlist"></div></section>
+
+<section id="quiz"><h1>Quiz</h1><div class="card"><select id="qsub"></select> <button class="b" onclick="startQuiz(false)">Start quiz</button> <button class="b alt" onclick="startQuiz(true)">Exam mode (timed)</button></div><div id="qarea"></div></section>
+
+<section id="cards"><h1>Flash Cards</h1><select id="fsub" onchange="fi=0;renderFlash()"></select><div class="card"><div class="flash" id="fc" onclick="flip()"></div><p><button class="b alt" onclick="fnext(-1)">Prev</button> <button class="b" onclick="fnext(1)">Next</button> <span id="fcount"></span></p></div></section>
+
+<section id="friends"><h1>Invite Friends</h1><div class="card"><p>Study together! Share your link:</p><input id="ilink" readonly style="width:100%"><button class="b" onclick="copyInv()">Copy link</button> <a class="b" style="text-decoration:none;display:inline-block;padding:8px 10px;border-radius:8px" id="wa" target="_blank">Share on WhatsApp</a></div></section>
+
+<section id="game"><h1>Game Zone</h1><div class="card" id="gstatus"></div><div class="card" id="garea"></div></section>
+
+<section id="streak"><h1>Streak</h1><div class="card" style="text-align:center"><div style="font-size:64px">🔥</div><h1 id="sbig"></h1><p id="snote"></p></div></section>
+
+<section id="focusp"><h1>Focus Mode</h1><div class="card"><label>Minutes <input id="fmin" type="number" value="25" min="1" max="120"></label> <button class="b" onclick="startFocus()">Start focus session</button><p>Distraction-free fullscreen timer. Finishing a session adds to your study hours.</p></div></section>
+
+<section id="chat"><h1>Chatbot</h1><div class="card"><select id="cmode"><option value="friendly">😊 Friendly mode</option><option value="pro">💼 Professional mode</option></select>
+<div id="chatlog"></div><input id="cin" placeholder="Ask about studying..." style="width:70%" onkeydown="if(event.key=='Enter')send()"> <button class="b" onclick="send()">Send</button></div></section>
+
+<section id="scan"><h1>Scanner: Fake Message / Account Check</h1><div class="card">
+<p>Upload a screenshot of a message or profile. Optionally type what it says for a better check.</p>
+<input type="file" id="sfile" accept="image/*" onchange="prev()"><br><img id="spv" style="max-width:260px;display:none;border-radius:8px;margin:6px 0"><br>
+<textarea id="stxt" rows="3" style="width:100%" placeholder="Type or paste the text from the screenshot (optional)"></textarea><br>
+<button class="b" onclick="scan()">Scan</button></div>
+<div class="card" id="sres" style="display:none"><h3>Scanner Result</h3><div class="msg bot" id="smsg"></div></div></section>
+</main>
+
+<div id="focus"><div>Stay focused 🎯</div><h1 id="ftime">25:00</h1><button class="b" onclick="endFocus(false)">Give up</button></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const DB={
+Math:{notes:["A fraction shows parts of a whole.","Area of a circle = πr². Circumference = 2πr.","Pythagoras: a² + b² = c² in right triangles.","Slope of a line = rise ÷ run."],
+ qs:[["What is 12 × 12?",["122","144","124","148"],1],["Area formula of a circle?",["2πr","πr²","πd","r²"],1],["If a²+b²=c², what triangle is it?",["Equilateral","Right","Obtuse","Isosceles"],1],["Square root of 81?",["7","8","9","11"],2],["15% of 200?",["20","25","30","35"],2]]},
+Science:{notes:["Photosynthesis: plants make glucose using sunlight, CO₂ and water.","Newton's 1st law: objects keep their motion unless a force acts.","Atoms contain protons, neutrons and electrons.","Water boils at 100°C at sea level."],
+ qs:[["Which gas do plants absorb?",["Oxygen","CO₂","Nitrogen","Helium"],1],["Center of an atom is called?",["Shell","Nucleus","Ion","Cell"],1],["Unit of force?",["Joule","Watt","Newton","Pascal"],2],["Water boiling point (°C)?",["90","100","110","120"],1],["Powerhouse of the cell?",["Nucleus","Ribosome","Mitochondria","Golgi"],2]]},
+English:{notes:["A noun names a person, place or thing.","A verb shows action or state.","Use 'their' for possession, 'there' for place.","A thesis statement states your main argument."],
+ qs:[["Which is a verb?",["Quickly","Run","Blue","Happy"],1],["Correct word: ___ going to school.",["Their","There","They're","Thier"],2],["Plural of 'child'?",["Childs","Children","Childes","Childen"],1],["A word opposite in meaning is a...",["Synonym","Antonym","Homonym","Acronym"],1],["Which is a noun?",["Dog","Jump","Soft","Slowly"],0]]}};
+const subs=Object.keys(DB);
+const load=()=>JSON.parse(localStorage.getItem('bb')||'{"scores":[],"hours":{},"goal":2,"streak":0,"last":"","rem":[],"ev":{}}');
+let S=load();const save=()=>localStorage.setItem('bb',JSON.stringify(S));
+const today=()=>new Date().toISOString().slice(0,10);
+
+// ---- nav
+const pages=[["dashboard","🏠 Dashboard"],["learn","📚 Learning"],["progress","📈 Progress"],["plan","📝 Study Plan"],["calendar","📅 Calendar"],["remind","⏰ Reminders"],["quiz","❓ Quiz / Exam"],["cards","🃏 Flash Cards"],["friends","👥 Invite Friend"],["game","🎮 Game Zone"],["streak","🔥 Streak"],["focusp","🎯 Focus Mode"],["chat","💬 Chatbot"],["scan","🛡️ Scanner"]];
+pages.forEach(([id,l])=>{const b=document.createElement('button');b.textContent=l;b.dataset.p=id;b.onclick=()=>go(id);$('nav').appendChild(b)});
+function go(id){document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id==id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.p==id));
+ ({dashboard:renderDash,learn:renderLearn,progress:renderProg,plan:renderPlan,calendar:renderCal,remind:renderRem,cards:renderFlash,friends:renderInv,game:renderGame,streak:renderStreak})[id]?.();window.scrollTo(0,0)}
+document.querySelectorAll('select[id$=sub],#subj').forEach(s=>subs.forEach(x=>s.add(new Option(x,x))));
+
+// ---- streak
+function touch(){const t=today();if(S.last==t)return;const y=new Date(Date.now()-864e5).toISOString().slice(0,10);S.streak=S.last==y?S.streak+1:1;S.last=t;save()}
+function renderStreak(){const ok=S.last==today();$('sbig').textContent=S.streak+' day'+(S.streak==1?'':'s');$('snote').textContent=ok?'Nice! You studied today.':'Do a quiz, log hours or finish a focus session to keep your streak alive.'}
+
+// ---- dashboard / progress
+const sum=o=>Object.values(o).reduce((a,b)=>a+b,0);
+const avg=()=>S.scores.length?Math.round(S.scores.reduce((a,b)=>a+b.p,0)/S.scores.length):0;
+const best=()=>S.scores.length?Math.max(...S.scores.map(s=>s.p)):0;
+const stat=(n,l)=>`<div class="card stat"><b>${n}</b>${l}</div>`;
+function renderDash(){const tips=["Study in short bursts with breaks.","Teach a friend to test yourself.","Sleep well before exams.","Review notes within 24 hours."];$('tip').textContent=tips[new Date().getDate()%tips.length];
+ $('dstats').innerHTML=stat('🔥 '+S.streak,'Day streak')+stat(avg()+'%','Average score')+stat(sum(S.hours).toFixed(1)+'h','Total study time')+stat(S.scores.length,'Quizzes taken')}
+function renderProg(){$('pstats').innerHTML=stat(S.scores.length,'Attempts')+stat(avg()+'%','Average')+stat(best()+'%','Best score')+stat(sum(S.hours).toFixed(1)+'h','Hours studied');
+ const c=$('chart'),x=c.getContext('2d'),W=c.width,H=c.height;x.clearRect(0,0,W,H);const d=S.scores.slice(-12);const col=getComputedStyle(document.body).color;
+ x.fillStyle=col;x.font='14px sans-serif';x.strokeStyle='#8884';[0,50,80,100].forEach(v=>{const y=H-30-(H-50)*v/100;x.beginPath();x.moveTo(40,y);x.lineTo(W,y);x.stroke();x.fillText(v,5,y+4)});
+ $('chartnote').textContent=d.length?'Last '+d.length+' quiz scores (%)':'No quiz results yet. Take a quiz to see your graph.';
+ const bw=Math.min(50,(W-60)/Math.max(d.length,1)-8);d.forEach((s,i)=>{const h=(H-50)*s.p/100,px=50+i*(bw+8);x.fillStyle=s.p>=80?'#1a9d5c':'#7a4fc4';x.fillRect(px,H-30-h,bw,h);x.fillStyle=col;x.fillText(s.p,px+4,H-34-h)})}
+
+// ---- learning
+function renderLearn(){const s=$('subj').value||subs[0];$('lcontent').innerHTML=DB[s].notes.map(n=>`<div class="card">📖 ${n}</div>`).join('')}
+
+// ---- study plan
+function savePlan(){const s=$('psub').value,h=+$('phrs').value||0;S.hours[s]=(S.hours[s]||0)+h;S.goal=+$('pgoal').value||2;if(h>0)touch();save();renderPlan()}
+function renderPlan(){const t=sum(S.hours);$('plist').innerHTML='<b>Hours by subject</b><br>'+(subs.map(s=>`${s}: ${(S.hours[s]||0).toFixed(1)}h`).join('<br>'))+`<br><br>Total: ${t.toFixed(1)}h · Daily goal: ${S.goal}h`}
+
+// ---- calendar & reminders
+let cmo=new Date();cmo.setDate(1);
+function cm(n){cmo.setMonth(cmo.getMonth()+n);renderCal()}
+function renderCal(){const y=cmo.getFullYear(),m=cmo.getMonth();$('cmt').textContent=cmo.toLocaleString('default',{month:'long',year:'numeric'});
+ let h='SMTWTFS'.split('').map(d=>`<div><b>${d}</b></div>`).join('');for(let i=0;i<cmo.getDay();i++)h+='<div></div>';
+ const n=new Date(y,m+1,0).getDate();for(let d=1;d<=n;d++){const k=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const ev=(S.ev[k]||[]).concat(S.rem.filter(r=>r.at.startsWith(k)).map(r=>r.t));
+  h+=`<div class="${ev.length?'ev':''} ${k==today()?'td':''}" title="${ev.join(', ')}" onclick="addEv('${k}')">${d}${ev.length?'<br>•'+ev.length:''}</div>`}
+ $('cal').innerHTML=h}
+function addEv(k){const t=prompt('Event for '+k+(S.ev[k]?'\nExisting: '+S.ev[k].join(', '):''));if(t){(S.ev[k]=S.ev[k]||[]).push(t);save();renderCal()}}
+function addRem(){if(!$('rtx').value||!$('rdt').value)return alert('Enter text and time');S.rem.push({t:$('rtx').value,at:$('rdt').value,done:false});save();$('rtx').value='';renderRem();if('Notification'in window&&Notification.permission=='default')Notification.requestPermission()}
+function renderRem(){$('rlist').innerHTML=S.rem.map((r,i)=>`<div class="card">${r.done?'✅':'⏰'} <b>${r.t}</b> — ${r.at.replace('T',' ')} <button class="b alt" onclick="S.rem.splice(${i},1);save();renderRem()">Delete</button></div>`).join('')||'<p>No reminders yet.</p>'}
+setInterval(()=>{const loc=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
+ S.rem.forEach(r=>{if(!r.done&&r.at<=loc){r.done=true;save();if('Notification'in window&&Notification.permission=='granted')new Notification('BrainBuddy reminder',{body:r.t});else alert('⏰ '+r.t);}})},15000);
+
+// ---- quiz & exam
+let Q=null;
+function startQuiz(exam){const s=$('qsub').value;Q={s,exam,i:0,sc:0,ans:[],qs:[...DB[s].qs].sort(()=>Math.random()-.5),t:300};
+ if(exam){Q.timer=setInterval(()=>{Q.t--;const e=$('qt');if(e)e.textContent=Math.floor(Q.t/60)+':'+String(Q.t%60).padStart(2,'0');if(Q.t<=0)finishQuiz()},1000)}showQ()}
+function showQ(){const q=Q.qs[Q.i];$('qarea').innerHTML=`<div class="card"><small>${Q.exam?'📝 EXAM MODE · <span id="qt">5:00</span> · no answers shown until the end':'Question '+(Q.i+1)+'/'+Q.qs.length}</small><h3>${Q.i+1}. ${q[0]}</h3>${q[1].map((o,j)=>`<button class="b alt opt" onclick="pick(${j},this)">${o}</button>`).join('')}</div>`}
+function pick(j,el){const q=Q.qs[Q.i];if(j==q[2])Q.sc++;
+ if(!Q.exam){document.querySelectorAll('.opt').forEach((b,k)=>{b.disabled=true;if(k==q[2])b.classList.add('ok');else if(k==j)b.classList.add('no')});setTimeout(next,900)}else next()}
+function next(){Q.i++;Q.i<Q.qs.length?showQ():finishQuiz()}
+function finishQuiz(){clearInterval(Q.timer);const p=Math.round(Q.sc/Q.qs.length*100);S.scores.push({s:Q.s,p,exam:Q.exam,d:today()});touch();save();
+ $('qarea').innerHTML=`<div class="card"><h2>${p>=80?'🎉':'💪'} Result: ${Q.sc}/${Q.qs.length} (${p}%)</h2><p>${p>=80?'Great! Game levels are unlocked 🎮':'Score 80% or more to unlock game levels.'}</p><button class="b" onclick="go('progress')">See progress</button></div>`;Q=null}
+
+// ---- flashcards
+let fi=0,fb=false;
+function renderFlash(){const s=$('fsub').value||subs[0],n=DB[s].qs;const q=n[fi%n.length];fb=false;$('fc').textContent=q[0];$('fcount').textContent=(fi%n.length+1)+'/'+n.length}
+function flip(){const s=$('fsub').value,q=DB[s].qs[fi%DB[s].qs.length];fb=!fb;$('fc').textContent=fb?'✅ '+q[1][q[2]]:q[0]}
+function fnext(d){const l=DB[$('fsub').value].qs.length;fi=(fi+d+l)%l;renderFlash()}
+
+// ---- invite
+function renderInv(){const l=location.origin+location.pathname+'?ref=bb'+(S.streak+7)*13;$('ilink').value=l;$('wa').href='https://wa.me/?text='+encodeURIComponent('Join me on BrainBuddy and study together! '+l);$('wa').style.background='#25d366';$('wa').style.color='#fff'}
+function copyInv(){navigator.clipboard?.writeText($('ilink').value);alert('Link copied!')}
+
+// ---- game (unlock at >=80%)
+function renderGame(){const b=best(),lv=b>=80?1+Math.floor((b-80)/10):0;
+ $('gstatus').innerHTML=lv?`🔓 Unlocked! Your best score: ${b}%`:`🔒 Locked. Your best score is ${b}%. Score above 80% in a quiz to unlock.`;
+ $('garea').className='card'+(lv?'':' lock');$('garea').innerHTML=lv?'<h3>Math Sprint</h3><p>Solve as many as you can in 20 seconds.</p><button class="b" onclick="gStart()">Start</button><div id="gp"></div>':'<h3>🎮 Math Sprint (locked)</h3>'}
+let G;function gStart(){G={sc:0,t:20};gQ();G.iv=setInterval(()=>{G.t--;$('gt').textContent=G.t;if(G.t<=0){clearInterval(G.iv);$('gp').innerHTML=`<h3>Time up! Score: ${G.sc}</h3><button class="b" onclick="gStart()">Play again</button>`}},1000)}
+function gQ(){const a=1+Math.random()*12|0,b=1+Math.random()*12|0;G.a=a*b;$('gp').innerHTML=`<p>⏱ <span id="gt">${G.t}</span>s · Score ${G.sc}</p><h2>${a} × ${b} = ?</h2><input id="gi" type="number" onkeydown="if(event.key=='Enter')gA()"> <button class="b" onclick="gA()">OK</button>`;$('gi').focus()}
+function gA(){if(G.t<=0)return;if(+$('gi').value==G.a)G.sc++;gQ()}
+
+// ---- focus
+let FT;function startFocus(){let s=(+$('fmin').value||25)*60;$('focus').classList.add('on');const tick=()=>{$('ftime').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');if(s--<=0)endFocus(true)};tick();FT=setInterval(tick,1000)}
+function endFocus(done){clearInterval(FT);$('focus').classList.remove('on');if(done){const m=(+$('fmin').value||25)/60;S.hours.Math=(S.hours.Math||0)+m;touch();save();alert('Session complete! Hours added.')}}
+
+// ---- chatbot (rule-based demo)
+const KB=[[/(hello|hi|hey)/,"Hi! How can I help you study?","Hello. How may I assist with your studies?"],
+[/(tired|bored|lazy)/,"Take a 5 min break, drink water, then try a short focus session 💪","Short breaks improve retention. Try a 25-minute focus interval followed by 5 minutes of rest."],
+[/(exam|test)/,"Use Exam Mode to practice under time pressure. You've got this! 🎯","I recommend revising notes, then practicing in Exam Mode under timed conditions."],
+[/(plan|schedule)/,"Log your hours in Study Plan and add dates to the Calendar 📅","Use the Study Plan form to log hours and the Calendar to schedule sessions."],
+[/(memor|remember)/,"Flash cards + sleep = magic ✨","Active recall with flash cards and spaced repetition is effective for memorization."]];
+function send(){const t=$('cin').value.trim();if(!t)return;const pro=$('cmode').value=='pro';add(t,'me');$('cin').value='';
+ const k=KB.find(x=>x[0].test(t.toLowerCase()));add(k?(pro?k[2]:k[1]):(pro?"Please rephrase. I can help with study plans, exams and revision techniques.":"Hmm, not sure about that 🤔 I can help with study tips, exams and plans!"),'bot')}
+function add(t,c){const d=document.createElement('div');d.className='msg '+c;d.textContent=t;$('chatlog').appendChild(d);$('chatlog').scrollTop=1e9}
+
+// ---- scanner (heuristic demo; real detection needs a backend/AI API)
+function prev(){const f=$('sfile').files[0];if(f){$('spv').src=URL.createObjectURL(f);$('spv').style.display='block'}}
+function scan(){const f=$('sfile').files[0],t=$('stxt').value.toLowerCase();if(!f&&!t)return alert('Upload a screenshot or type its text.');
+ const flags=[];const rules=[[/(otp|verification code|cvv|pin)\b/,"asks for OTP/PIN/CVV"],[/(urgent|immediately|act now|last chance|within 24)/,"creates false urgency"],[/(won|winner|lottery|prize|reward|gift card|free)/,"promises prizes or free items"],[/(click|tap).*(link|here)|bit\.ly|tinyurl|\.xyz|\.top/,"contains suspicious links"],[/(send money|transfer|upi|crypto|bitcoin|investment|double your)/,"asks for money or investment"],[/(account.*(blocked|suspend|verify)|kyc)/,"threatens account suspension / KYC"],[/(dm me|whatsapp me|telegram)/,"pushes you to move to another chat app"]];
+ rules.forEach(([r,m])=>{if(r.test(t))flags.push(m)});
+ let lvl=flags.length>=3?'HIGH':flags.length>=1?'MEDIUM':'LOW';
+ let msg=`🛡️ Scan result: ${lvl} RISK.\n`;
+ msg+=flags.length?`Warning signs found: ${flags.join('; ')}.\nDo NOT click links, share OTPs or send money. Verify the sender through an official channel and report/block the account.`:(t?'No common scam patterns found in the text you provided.':'Screenshot received, but no text was entered, so only a limited check was possible.')+`\nStill verify the sender, check for a blue/verified badge, account age, follower quality and spelling errors.`;
+ msg+='\n\nNote: this is a basic keyword check. For real image/account detection, connect this page to a backend with OCR + an AI model.';
+ $('sres').style.display='block';$('smsg').style.whiteSpace='pre-line';$('smsg').textContent=msg;$('sres').scrollIntoView({behavior:'smooth'})}
+
+go('dashboard');
+</script>
+</body>
+</html>
